@@ -1,0 +1,132 @@
+import tensorflow as tf
+import keras
+import numpy as np
+import matplotlib as plt
+
+print(tf.__version__)
+
+#Download the database(IMDB)
+imdb=keras.datasets.imdb
+(train_data,train_labes),(test_data,test_labels)=imdb.load_data(num_words=10000)
+
+#Explore the data
+
+#this is a preprocessed data each exaple is an array of integers representing the words of movie review.
+# & each label has the value 0 or 1 represent the positive or negativeness of the review.
+
+print("Train dataset fetures:(Inputs): ", train_data[0])
+print("Test dataset labels (outputs): ", test_data[0])
+print("length of the train data:",len(train_data[0]))
+print("Length of the test data:", len(test_data[0]))
+
+# Here movie reviews are of different length to send it to the input layer of the ANN need to convert all the features into a same length.
+
+# cheack the length of the 1st two fetures
+
+print("Lenght of the 1st feature: ", len(train_data[0]))
+print("Length of the 2nd feature: ", len(train_data[1]))
+
+#convert the interger back to words
+#Converting inegers to Text:
+
+word_index=imdb.get_word_index()
+
+word_index={k:(v+3) for k,v in word_index.items()}
+word_index["<PAD>"]=0
+word_index["<START>"]=1
+word_index["<UNK>"]=2
+word_index["<UNUSED>"]=3
+
+reverse_word_index=dict([(value,key)for (key,value) in word_index.items()])
+def decode_review(text):
+   return ' '.join([reverse_word_index.get(i,'?') for i in text])
+
+# Decode review to display integer to text
+
+print(decode_review(train_data[0]))
+#################################
+#Prepare the data
+# array of integer is converted into a tensor before fed into the neural net
+
+# we can use pad length so all will become the same length
+# Alternatively, we can pad the arrays so they all have the same length, then create an integer tensor of shape num_examples * max_length. We can use an embedding layer capable of handling this shape as the first layer in our network.
+
+train_data=keras.preprocessing.sequence.pad_sequences(train_data,
+                                                      value=word_index["<PAD>"],
+                                                      padding='post',
+                                                      maxlen=256)
+test_data=keras.preprocessing.sequence.pad_sequences(test_data,
+                                                     value=word_index["<PAD>"],
+                                                     padding='post',
+                                                     maxlen=256)
+print(len(train_data[0]), len(train_data[1]), len(test_data[0]), len(test_data[1]))
+
+print("\nActual data:", train_data[0])
+print("\n Display data: ", decode_review(train_data[0]))
+
+print(" \nTest data: ", decode_review(test_data[0]))
+
+#Build the model
+
+vocab_size=10000
+model=keras.Sequential()
+model.add(keras.layers.Embedding(vocab_size, 16))
+model.add(keras.layers.GlobalAveragePooling1D())
+model.add(keras.layers.Dense(16,activation=tf.nn.relu))
+model.add(keras.layers.Dense(1,activation=tf.nn.sigmoid))
+
+model.summary()
+
+
+#compile the model
+# for binary classification problem use loss function= binary_crossentropy
+model.compile(optimizer=tf.train.AdamOptimizer(),
+              loss='binary_crossentropy',
+              metrics=['accuracy'])
+
+#Create a validation set
+
+x_val=train_data[:10000]
+partial_x_train=train_data[10000:]
+
+y_val=train_labes[:10000]
+partial_y_train=train_labes[10000:]
+
+
+#train the model
+# train the model with 40 epochs : ie 20 iteration over the x-train and y_train tensors.
+
+history=model.fit(partial_x_train, partial_y_train, epochs=40, batch_size=512, validation_data=(x_val, y_val), verbose=1)
+
+# evalute the model
+result=model.evaluate(test_data, test_labels)
+print('Evaluation the result with the test data and test labels: ', result)
+
+print("Print the train labels: ", train_labes[0])
+
+# Create a graph accuracy
+
+history_dict=history.history
+print("Keys is history: ",history_dict.keys())
+
+import matplotlib.pyplot as plt
+acc=history.history['acc']
+val_acc=history.history['val_acc']
+loss=history.history['loss']
+val_loss=history.history['val_loss']
+
+epochs=range(1,len(acc)+1)
+
+# "bo" is for blue dot
+plt.plot(epochs,loss, 'bo', label='Training Loss')
+
+
+# r is for solid red line
+
+plt.plot(epochs, val_loss, 'r', label='Validation loss')
+plt.title('traing & Validation loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+
